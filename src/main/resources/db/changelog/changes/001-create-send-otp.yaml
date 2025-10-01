@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-send-otp
+      author: pozdeevIY
+      changes:
+        - createTable:
+            tableName: send_otp
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: process_id
+                  type: varchar(100)
+              - column:
+                  name: sending_channel
+                  type: varchar(50)
+              - column:
+                  name: target
+                  type: varchar(255)
+              - column:
+                  name: message
+                  type: varchar(2000)
+              - column:
+                  name: length
+                  type: int
+              - column:
+                  name: ttl
+                  type: int
+              - column:
+                  name: session_ttl
+                  type: int
+              - column:
+                  name: resend_attempts
+                  type: int
+              - column:
+                  name: resend_timeout
+                  type: int
+              - column:
+                  name: encoded_otp
+                  type: varchar(255)
+              - column:
+                  name: send_message_key
+                  type: varchar(255)
+              - column:
+                  name: status
+                  type: varchar(50)
+              - column:
+                  name: send_time
+                  type: timestamp
+              - column:
+                  name: create_time
+                  type: timestamp
+              - column:
+                  name: create_user
+                  type: varchar(100)
+              - column:
+                  name: last_update_time
+                  type: timestamp
+              - column:
+                  name: last_update_user
+                  type: varchar(100)
+        - createIndex:
+            tableName: send_otp
+            indexName: idx_send_otp_process_id
+            columns:
+              - column:
+                  name: process_id
+
+

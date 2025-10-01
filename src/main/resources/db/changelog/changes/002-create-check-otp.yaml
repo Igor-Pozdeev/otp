@@ -1,0 +1,45 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-check-otp
+      author: pozdeevIY
+      changes:
+        - createTable:
+            tableName: check_otp
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: process_id
+                  type: varchar(100)
+              - column:
+                  name: otp
+                  type: varchar(255)
+              - column:
+                  name: check_time
+                  type: timestamp
+              - column:
+                  name: correct
+                  type: boolean
+              - column:
+                  name: create_time
+                  type: timestamp
+              - column:
+                  name: create_user
+                  type: varchar(100)
+              - column:
+                  name: last_update_time
+                  type: timestamp
+              - column:
+                  name: last_update_user
+                  type: varchar(100)
+        - createIndex:
+            tableName: check_otp
+            indexName: idx_check_otp_process_id
+            columns:
+              - column:
+                  name: process_id
+
+
