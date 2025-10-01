@@ -17,6 +17,10 @@ repositories {
     mavenCentral()
 }
 
+test {
+    useJUnitPlatform()
+}
+
 jar.enabled = false
 
 dependencies {
