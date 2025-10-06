@@ -1,6 +1,7 @@
 package ru.pozdeev.otp.util;
 
 import ru.pozdeev.otp.model.OtpGenerateRequest;
+import ru.pozdeev.otp.model.SendingChannel;
 
 import java.util.UUID;
 
@@ -16,7 +17,7 @@ public class TestRequests {
     public static OtpGenerateRequest otpGenerateRequestWithLength(int length) {
         return new OtpGenerateRequest(
                 UUID.randomUUID(),
-                "console",
+                SendingChannel.TELEGRAM,
                 "ignored",
                 "Your code: %s",
                 length,

@@ -17,36 +17,33 @@ public class OtpGenerateRequest {
 
     private UUID processId;
 
-    @NotBlank
-    @NotNull(message = "Это обязательное поле. Необходимо его заполнить")
-    private String sendingChannel;
+    private SendingChannel sendingChannel;
 
     @NotBlank
-    @NotNull(message = "Это обязательное поле. Необходимо его заполнить")
     private String target;
 
-    @NotNull(message = "Это обязательное поле. Необходимо его заполнить")
+    @NotBlank
     private String message;
 
     @Min(4)
     @Max(12)
-    @NotNull(message = "Это обязательное поле. Необходимо его заполнить")
+    @NotNull
     private Integer length;
 
     @Min(30)
-    @NotNull(message = "Это обязательное поле. Необходимо его заполнить")
+    @NotNull
     private Integer ttl;
 
     @Min(60)
-    @NotNull(message = "Это обязательное поле. Необходимо его заполнить")
+    @NotNull
     private Integer sessionTtl;
 
     @Min(1)
     @Max(3)
-    @NotNull(message = "Это обязательное поле. Необходимо его заполнить")
+    @NotNull
     private Integer resendAttempts;
 
     @Min(30)
-    @NotNull(message = "Это обязательное поле. Необходимо его заполнить")
+    @NotNull
     private Integer resendTimeout;
 }
