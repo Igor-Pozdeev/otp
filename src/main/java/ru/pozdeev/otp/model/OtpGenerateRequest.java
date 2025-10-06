@@ -22,7 +22,7 @@ public class OtpGenerateRequest {
     @NotBlank
     private String target;
 
-    @NotNull
+    @NotBlank
     private String message;
 
     @Min(4)
