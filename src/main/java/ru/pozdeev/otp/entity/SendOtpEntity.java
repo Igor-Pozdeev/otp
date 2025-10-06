@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import ru.pozdeev.otp.model.SendingChannel;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -19,7 +20,8 @@ public class SendOtpEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     private String processId;
-    private String sendingChannel;
+    @Enumerated(EnumType.STRING)
+    private SendingChannel sendingChannel;
     private String target;
     private String message;
     private Integer length;
