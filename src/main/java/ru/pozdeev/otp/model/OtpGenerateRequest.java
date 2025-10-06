@@ -15,6 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class OtpGenerateRequest {
 
+    @NotBlank
     private UUID processId;
 
     private SendingChannel sendingChannel;

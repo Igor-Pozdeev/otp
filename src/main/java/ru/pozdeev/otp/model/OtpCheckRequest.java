@@ -12,6 +12,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class OtpCheckRequest {
 
+    @NotBlank
     private UUID processId;
     @NotBlank
     private String otp;
