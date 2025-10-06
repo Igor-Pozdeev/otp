@@ -35,7 +35,7 @@ class OtpControllerTest {
                 .body(body)
                 .build();
 
-        mockMvc.perform(post("/otp/api/v1/otp/generateAndSend")
+        mockMvc.perform(post("/api/v1/otp/generateAndSend")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -50,7 +50,7 @@ class OtpControllerTest {
                 .body(body)
                 .build();
 
-        mockMvc.perform(post("/otp/api/v1/otp/generateAndSend")
+        mockMvc.perform(post("/api/v1/otp/generateAndSend")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -64,7 +64,7 @@ class OtpControllerTest {
                 .body(body)
                 .build();
 
-        mockMvc.perform(post("/otp/api/v1/otp/check")
+        mockMvc.perform(post("/api/v1/otp/check")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
