@@ -1,14 +1,11 @@
-package ru.pozdeev.otp.util;
+package ru.pozdeev.otp.testutil;
 
 import ru.pozdeev.otp.model.OtpGenerateRequest;
 import ru.pozdeev.otp.model.SendingChannel;
 
 import java.util.UUID;
 
-public class TestRequests {
-
-    private TestRequests() {
-    }
+public class TestRequestsUtil {
 
     public static OtpGenerateRequest defaultOtpGenerateRequest() {
         return otpGenerateRequestWithLength(6);

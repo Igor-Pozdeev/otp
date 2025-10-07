@@ -1,5 +1,11 @@
 package ru.pozdeev.otp.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public enum SendingChannel {
-    TELEGRAM, CONSOLE
+    @JsonProperty("telegram")
+    TELEGRAM,
+
+    @JsonProperty("console")
+    CONSOLE
 }

@@ -1,22 +1,26 @@
 package ru.pozdeev.otp.model;
 
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.validator.constraints.Range;
 
 import java.util.UUID;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class OtpGenerateRequest {
 
+    @NotNull
     private UUID processId;
 
+    @NotNull
     private SendingChannel sendingChannel;
 
     @NotBlank
@@ -25,8 +29,7 @@ public class OtpGenerateRequest {
     @NotBlank
     private String message;
 
-    @Min(4)
-    @Max(12)
+    @Range(min = 4, max = 12)
     @NotNull
     private Integer length;
 
@@ -38,8 +41,7 @@ public class OtpGenerateRequest {
     @NotNull
     private Integer sessionTtl;
 
-    @Min(1)
-    @Max(3)
+    @Range(min = 1, max = 3)
     @NotNull
     private Integer resendAttempts;
 

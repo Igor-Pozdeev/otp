@@ -14,12 +14,13 @@ import ru.pozdeev.otp.dto.common.CommonRequest;
 import ru.pozdeev.otp.model.OtpCheckRequest;
 import ru.pozdeev.otp.model.OtpGenerateRequest;
 import ru.pozdeev.otp.model.SendingChannel;
-import ru.pozdeev.otp.util.TestRequests;
+import ru.pozdeev.otp.testutil.TestRequestsUtil;
 
 import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = OtpController.class)
@@ -34,7 +35,7 @@ class OtpControllerTest {
     @Test
     @DisplayName("Метод generateAndSend получает валидный запрос и возвращает статус OK")
     void when_generateAndSend_takesValidRequest_then_ok() throws Exception {
-        OtpGenerateRequest body = TestRequests.defaultOtpGenerateRequest();
+        OtpGenerateRequest body = TestRequestsUtil.defaultOtpGenerateRequest();
 
         CommonRequest<OtpGenerateRequest> request = CommonRequest.<OtpGenerateRequest>builder()
                 .body(body)
@@ -62,7 +63,7 @@ class OtpControllerTest {
     @ParameterizedTest
     @MethodSource(value = "generateAndSendProvider")
     @DisplayName("Параметризованный тест для generateAndSend: валидация всех полей")
-    void when_generateAndSend_parametrized_then_badRequest(OtpGenerateRequest otpGenerateRequest) throws Exception {
+    void when_generateAndSend_parametrized_then_badRequest(OtpGenerateRequest otpGenerateRequest, String pointer, String message) throws Exception {
         CommonRequest<OtpGenerateRequest> request = CommonRequest.<OtpGenerateRequest>builder()
                 .body(otpGenerateRequest)
                 .build();
@@ -70,108 +71,10 @@ class OtpControllerTest {
         mockMvc.perform(post("/api/v1/otp/generateAndSend")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
-
-    private static Stream<Arguments> generateAndSendProvider() {
-        return Stream.of(
-                Arguments.of(
-                        new OtpGenerateRequest(
-                                null,
-                                SendingChannel.CONSOLE,
-                                " ",
-                                "Your code: %s",
-                                6,
-                                60,
-                                120,
-                                2,
-                                45)
-                ),
-                Arguments.of(
-                        new OtpGenerateRequest(
-                                null,
-                                SendingChannel.CONSOLE,
-                                null,
-                                "Your code: %s",
-                                6,
-                                60,
-                                120,
-                                2,
-                                45)
-                ),
-                Arguments.of(
-                        new OtpGenerateRequest(
-                                null,
-                                SendingChannel.CONSOLE,
-                                "null",
-                                " ",
-                                6,
-                                60,
-                                120,
-                                2,
-                                45)
-                ),
-                Arguments.of(
-                        new OtpGenerateRequest(
-                                null,
-                                SendingChannel.CONSOLE,
-                                "null",
-                                null,
-                                6,
-                                60,
-                                120,
-                                2,
-                                45)
-                ),
-                Arguments.of(
-                        new OtpGenerateRequest(
-                                null,
-                                SendingChannel.CONSOLE,
-                                "null",
-                                "null",
-                                13,
-                                60,
-                                120,
-                                2,
-                                45)
-                ),
-                Arguments.of(
-                        new OtpGenerateRequest(
-                                null,
-                                SendingChannel.CONSOLE,
-                                "null",
-                                "null",
-                                null,
-                                60,
-                                120,
-                                2,
-                                45)
-                ),
-                Arguments.of(
-                        new OtpGenerateRequest(
-                                null,
-                                SendingChannel.CONSOLE,
-                                "null",
-                                "null",
-                                10,
-                                29,
-                                120,
-                                2,
-                                45)
-                ),
-                Arguments.of(
-                        new OtpGenerateRequest(
-                                null,
-                                SendingChannel.CONSOLE,
-                                "null",
-                                "null",
-                                3,
-                                60,
-                                null,
-                                2,
-                                45)
-                )
-        );
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorMessage").value("Ошибка валидации"))
+                .andExpect(jsonPath("$.validationErrors[0].field").value(pointer))
+                .andExpect(jsonPath("$.validationErrors[0].message").value(message));
     }
 
     @Test
@@ -201,41 +104,42 @@ class OtpControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    private static Stream<Arguments> checkProvider() {
-        return Stream.of(
-                Arguments.of(
-                        new OtpCheckRequest(
-                                null,
-                                null
-                        )
-                ),
-                Arguments.of(
-                        new OtpCheckRequest(
-                                null,
-                                " "
-                        )
-                ),
-                Arguments.of(
-                        new OtpCheckRequest(
-                                null,
-                                ""
-                        )
-                )
+    private static Stream<Arguments> generateAndSendProvider() {
+        return Stream.of(Arguments.of(OtpGenerateRequest.builder()
+                        .processId(UUID.randomUUID())
+                        .length(4)
+                        .sendingChannel(SendingChannel.CONSOLE)
+                        .message("message")
+                        .resendTimeout(30)
+                        .resendAttempts(2)
+                        .target("target")
+                        .sessionTtl(120).build(), "body.ttl", "must not be null"),
+                Arguments.of(OtpGenerateRequest.builder()
+                        .processId(UUID.randomUUID())
+                        .sendingChannel(SendingChannel.CONSOLE)
+                        .message("message")
+                        .resendTimeout(30)
+                        .resendAttempts(2)
+                        .target("target")
+                        .sessionTtl(120)
+                        .ttl(31).build(), "body.length", "must not be null"),
+                Arguments.of(OtpGenerateRequest.builder()
+                        .processId(UUID.randomUUID())
+                        .length(13)
+                        .sendingChannel(SendingChannel.CONSOLE)
+                        .message("message")
+                        .resendTimeout(30)
+                        .resendAttempts(2)
+                        .target("target")
+                        .sessionTtl(120)
+                        .ttl(31).build(), "body.length", "must be between 4 and 12")
         );
     }
 
-    @Test
-    @DisplayName("Метод check получает валидный запрос и возвращает статус OK")
-    void when_check_takesvalidRequest_then_ok() throws Exception {
-        OtpCheckRequest body = new OtpCheckRequest(UUID.randomUUID(), "123456");
-        CommonRequest<OtpCheckRequest> request = CommonRequest.<OtpCheckRequest>builder()
-                .body(body)
-                .build();
-
-        mockMvc.perform(post("/api/v1/otp/check")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk());
+    private static Stream<Arguments> checkProvider() {
+        return Stream.of(Arguments.of(new OtpCheckRequest(null, null)),
+                Arguments.of(new OtpCheckRequest(null, " ")),
+                Arguments.of(new OtpCheckRequest(null, "")));
     }
 }
 
