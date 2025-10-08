@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.pozdeev.otp.dto.common.CommonResponse;
 import ru.pozdeev.otp.dto.common.ValidationError;
+import ru.pozdeev.otp.exception.OtpException;
 
 import java.util.List;
 import java.util.UUID;
@@ -45,12 +46,24 @@ public class OtpExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public CommonResponse<?> handleException(Exception e) {
         log.error("Непредвиденное исключение: {}", e.getMessage(), e);
 
         return CommonResponse.builder()
                 .id(UUID.randomUUID())
                 .errorMessage("Непредвиденное исключение: " + e.getMessage())
+                .build();
+    }
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(OtpException.class)
+    public CommonResponse<?> handleOtpException(OtpException e) {
+        log.warn("Бизнес исключение: {}", e.getMessage(), e);
+
+        return CommonResponse.builder()
+                .id(UUID.randomUUID())
+                .errorMessage("Бизнес исключение: " + e.getMessage())
                 .build();
     }
 
@@ -70,6 +83,9 @@ public class OtpExceptionHandler {
                     .id(UUID.randomUUID())
                     .errorMessage(errorMessage)
                     .build();
+        }
+        if (ex.getCause() instanceof OtpException otpEx) {
+            return handleOtpException(otpEx);
         }
         return handleException(ex);
     }
