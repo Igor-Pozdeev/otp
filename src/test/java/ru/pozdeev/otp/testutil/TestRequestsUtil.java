@@ -24,4 +24,17 @@ public class TestRequestsUtil {
                 45
         );
     }
+
+    public static OtpGenerateRequest.OtpGenerateRequestBuilder otpRequestBuilder() {
+        return OtpGenerateRequest.builder()
+                .processId(UUID.randomUUID())
+                .sendingChannel(SendingChannel.CONSOLE)
+                .target("target")
+                .message("message")
+                .length(5)
+                .ttl(31)
+                .sessionTtl(61)
+                .resendAttempts(2)
+                .resendTimeout(31);
+    }
 }

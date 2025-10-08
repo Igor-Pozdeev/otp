@@ -13,15 +13,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import ru.pozdeev.otp.dto.common.CommonRequest;
 import ru.pozdeev.otp.model.OtpCheckRequest;
 import ru.pozdeev.otp.model.OtpGenerateRequest;
-import ru.pozdeev.otp.model.SendingChannel;
 import ru.pozdeev.otp.testutil.TestRequestsUtil;
 
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static ru.pozdeev.otp.testutil.TestRequestsUtil.otpRequestBuilder;
 
 @WebMvcTest(controllers = OtpController.class)
 class OtpControllerTest {
@@ -105,34 +104,14 @@ class OtpControllerTest {
     }
 
     private static Stream<Arguments> generateAndSendProvider() {
-        return Stream.of(Arguments.of(OtpGenerateRequest.builder()
-                        .processId(UUID.randomUUID())
-                        .length(4)
-                        .sendingChannel(SendingChannel.CONSOLE)
-                        .message("message")
-                        .resendTimeout(30)
-                        .resendAttempts(2)
-                        .target("target")
-                        .sessionTtl(120).build(), "body.ttl", "must not be null"),
-                Arguments.of(OtpGenerateRequest.builder()
-                        .processId(UUID.randomUUID())
-                        .sendingChannel(SendingChannel.CONSOLE)
-                        .message("message")
-                        .resendTimeout(30)
-                        .resendAttempts(2)
-                        .target("target")
-                        .sessionTtl(120)
-                        .ttl(31).build(), "body.length", "must not be null"),
-                Arguments.of(OtpGenerateRequest.builder()
-                        .processId(UUID.randomUUID())
-                        .length(13)
-                        .sendingChannel(SendingChannel.CONSOLE)
-                        .message("message")
-                        .resendTimeout(30)
-                        .resendAttempts(2)
-                        .target("target")
-                        .sessionTtl(120)
-                        .ttl(31).build(), "body.length", "must be between 4 and 12")
+        return Stream.of(Arguments.of(otpRequestBuilder().ttl(null).build(), "body.ttl", "must not be null"),
+                Arguments.of(otpRequestBuilder().length(null).build(), "body.length", "must not be null"),
+                Arguments.of(otpRequestBuilder().length(13).build(), "body.length", "must be between 4 and 12"),
+                Arguments.of(otpRequestBuilder().processId(null).build(), "body.processId", "must not be null"),
+                Arguments.of(otpRequestBuilder().sendingChannel(null).build(), "body.sendingChannel", "must not be null"),
+                Arguments.of(otpRequestBuilder().target("").build(), "body.target", "must not be blank"),
+                Arguments.of(otpRequestBuilder().ttl(13).build(), "body.ttl", "must be greater than or equal to 30"),
+                Arguments.of(otpRequestBuilder().sessionTtl(null).build(), "body.sessionTtl", "must not be null")
         );
     }
 
