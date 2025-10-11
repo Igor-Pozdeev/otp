@@ -11,5 +11,8 @@ databaseChangeLog:
   - include:
       file: "v1.0.0/04.create_send_otp_index.yaml"
       relativeToChangelogFile: true
+  - include:
+      file: "v1.0.0/05.create_send_otp_composite_index.yaml"
+      relativeToChangelogFile: true
 
 

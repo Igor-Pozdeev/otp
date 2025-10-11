@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: "05.create_send_otp_composite_index.yaml"
+      author: "Pozdeev IY"
+      changes:
+        - createIndex:
+            tableName: send_otp
+            indexName: idx_send_otp_process_id_create_time
+            columns:
+              - column:
+                  name: process_id
+              - column:
+                  name: create_time
+                  descending: true
