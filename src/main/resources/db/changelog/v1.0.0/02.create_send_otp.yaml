@@ -1,0 +1,83 @@
+databaseChangeLog:
+  - changeSet:
+      id: "02.create_send_otp.yaml"
+      author: "Pozdeev IY"
+      changes:
+        - createTable:
+            tableName: send_otp
+            remarks: "Информация о сгенерированном пароле и статусе его отправки"
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                  remarks: "Уникальный идентификатор записи"
+              - column:
+                  name: process_id
+                  type: varchar
+                  remarks: "Идентификатор процесса в рамках которого запрашивается одноразовый пароль"
+              - column:
+                  name: sending_channel
+                  type: varchar
+                  remarks: "Канал отправки"
+              - column:
+                  name: target
+                  type: varchar
+                  remarks: "Адрес, куда будет выполнена отправка в канале"
+              - column:
+                  name: message
+                  type: varchar
+                  remarks: "Текст сообщения"
+              - column:
+                  name: length
+                  type: int
+                  remarks: "Длина одноразового пароля"
+              - column:
+                  name: ttl
+                  type: int
+                  remarks: "Время жизни одноразового пароля в секундах"
+              - column:
+                  name: session_ttl
+                  type: int
+                  remarks: "Время жизни сессии одноразового пароля в секундах"
+              - column:
+                  name: resend_attempts
+                  type: int
+                  remarks: "Количество возможных повторных отправок кода"
+              - column:
+                  name: resend_timeout
+                  type: int
+                  remarks: "Таймаут перед повторным запросом кода в секундах"
+              - column:
+                  name: encoded_otp
+                  type: varchar
+                  remarks: "Зашифрованный одноразовый пароль"
+              - column:
+                  name: send_message_key
+                  type: varchar
+                  remarks: "Идентификатор сообщения, отправляемого во внешнюю систему"
+              - column:
+                  name: status
+                  type: varchar
+                  remarks: "Статус отправки сообщения"
+              - column:
+                  name: send_time
+                  type: timestamp
+                  remarks: "Время отправки одноразового пароля"
+              - column:
+                  name: create_time
+                  type: timestamp
+                  remarks: "Время создания"
+              - column:
+                  name: create_user
+                  type: varchar
+                  remarks: "Пользователь, создавший запись"
+              - column:
+                  name: last_update_time
+                  type: timestamp
+                  remarks: "Время обновления"
+              - column:
+                  name: last_update_user
+                  type: varchar
+                  remarks: "Пользователь, изменивший запись"

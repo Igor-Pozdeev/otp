@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: release/1.0.0
+      author: "Pozdeev IY"
+      changes:
+        - tagDatabase:
+            tag: release/1.0.0
+  - include:
+      file: 01.create_check_otp.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: 02.create_send_otp.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: 03.create_check_otp_index.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: 04.create_send_otp_index.yaml
+      relativeToChangelogFile: true
