@@ -13,7 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Entity
 @Table(name = "check_otp")
-public class CheckOtpEntity {
+public class CheckOtp {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -22,10 +22,18 @@ public class CheckOtpEntity {
     private String otp;
     private LocalDateTime checkTime;
     private Boolean correct;
-    private LocalDateTime createTime;
-    private String createUser;
-    private LocalDateTime lastUpdateTime;
-    private String lastUpdateUser;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        CheckOtp checkOtp = (CheckOtp) o;
+        return id.equals(checkOtp.id);
+    }
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }
 
 

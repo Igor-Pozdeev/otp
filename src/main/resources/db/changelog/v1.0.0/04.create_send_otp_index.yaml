@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: "04.create_send_otp_index.yaml"
+      author: "Pozdeev IY"
+      changes:
+        - createIndex:
+            tableName: send_otp
+            indexName: idx_send_otp_process_id
+            columns:
+              - column:
+                  name: process_id

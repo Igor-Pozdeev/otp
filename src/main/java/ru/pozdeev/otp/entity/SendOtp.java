@@ -14,7 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Entity
 @Table(name = "send_otp")
-public class SendOtpEntity {
+public class SendOtp {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -34,10 +34,18 @@ public class SendOtpEntity {
     @Enumerated(EnumType.STRING)
     private OtpSendStatus status;
     private LocalDateTime sendTime;
-    private LocalDateTime createTime;
-    private String createUser;
-    private LocalDateTime lastUpdateTime;
-    private String lastUpdateUser;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SendOtp sendOtp = (SendOtp) o;
+        return id.equals(sendOtp.id);
+    }
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }
 
 
