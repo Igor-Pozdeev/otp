@@ -1,7 +1,15 @@
 databaseChangeLog:
   - include:
-      file: db/changelog/changes/001-create-send-otp.yaml
+      file: "v1.0.0/01.create_check_otp.yaml"
+      relativeToChangelogFile: true
   - include:
-      file: db/changelog/changes/002-create-check-otp.yaml
+      file: "v1.0.0/02.create_send_otp.yaml"
+      relativeToChangelogFile: true
+  - include:
+      file: "v1.0.0/03.create_check_otp_index.yaml"
+      relativeToChangelogFile: true
+  - include:
+      file: "v1.0.0/04.create_send_otp_index.yaml"
+      relativeToChangelogFile: true
 
 
