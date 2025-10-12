@@ -13,7 +13,6 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "send_otp")
 public class SendOtp extends AuditableEntity {
 
     /**

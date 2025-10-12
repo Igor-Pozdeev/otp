@@ -44,7 +44,6 @@ public class AuditableEntity {
     @PreUpdate
     public void preUpdate() {
         this.lastUpdateTime = LocalDateTime.now();
-        ;
         this.lastUpdateUser = DEFAULT_DB_USER;
     }
 }
