@@ -11,9 +11,9 @@ import java.util.UUID;
 @Repository
 public interface SendOtpRepository extends JpaRepository<SendOtp, UUID> {
 
-    Optional<SendOtp> findFirstByProcessIdOrderByCreateTimeDesc(String processId);
+    List<SendOtp> findAllByProcessId(String string);
 
-    List<SendOtp> findAllByProcessIdOrderByCreateTimeAsc(String processId);
+    Optional<SendOtp> findFirstByProcessIdOrderByCreateTimeDesc(String processId);
 }
 
 

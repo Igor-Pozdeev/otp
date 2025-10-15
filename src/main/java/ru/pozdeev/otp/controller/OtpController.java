@@ -26,6 +26,7 @@ public class OtpController {
     @PostMapping(value = "/generateAndSend")
     public CommonResponse<Void> generateAndSend(@Valid @RequestBody CommonRequest<OtpGenerateRequest> request) {
         otpService.generateAndSend(request.getBody());
+
         return CommonResponse.<Void>builder()
                 .id(UUID.randomUUID())
                 .build();
@@ -34,6 +35,7 @@ public class OtpController {
     @PostMapping("/check")
     public CommonResponse<Void> check(@Valid @RequestBody CommonRequest<OtpCheckRequest> request) {
         otpService.check(request.getBody());
+
         return CommonResponse.<Void>builder()
                 .id(UUID.randomUUID())
                 .build();

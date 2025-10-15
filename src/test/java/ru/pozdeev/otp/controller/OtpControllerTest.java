@@ -9,10 +9,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.pozdeev.otp.dto.common.CommonRequest;
 import ru.pozdeev.otp.model.OtpCheckRequest;
 import ru.pozdeev.otp.model.OtpGenerateRequest;
+import ru.pozdeev.otp.service.OtpService;
 import ru.pozdeev.otp.testutil.TestRequestsUtil;
 
 import java.util.stream.Stream;
@@ -30,6 +32,9 @@ class OtpControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private OtpService otpService;
 
     @Test
     @DisplayName("Метод generateAndSend получает валидный запрос и возвращает статус OK")

@@ -66,10 +66,10 @@ public class SendOtp extends AuditableEntity {
      * Идентификатор сообщения, отправляемого во внешнюю систему
      */
     private String sendMessageKey;
-    @Enumerated(EnumType.STRING)
     /**
      * Статус отправки сообщения
      */
+    @Enumerated(EnumType.STRING)
     private OtpSendStatus status;
     /**
      * Время отправки одноразового пароля

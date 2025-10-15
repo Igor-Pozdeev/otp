@@ -1,11 +1,11 @@
 package ru.pozdeev.otp.service.impl;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import ru.pozdeev.otp.entity.AuditableEntity;
 import ru.pozdeev.otp.entity.CheckOtp;
+import ru.pozdeev.otp.entity.OtpSendStatus;
 import ru.pozdeev.otp.entity.SendOtp;
 import ru.pozdeev.otp.exception.OtpException;
 import ru.pozdeev.otp.mapper.OtpMapper;
@@ -19,93 +19,120 @@ import ru.pozdeev.otp.service.OtpService;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.function.Consumer;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class OtpServiceImpl implements OtpService {
 
+    private static final SecureRandom RANDOM = new SecureRandom();
     private final SendOtpRepository sendOtpRepository;
     private final CheckOtpRepository checkOtpRepository;
     private final PasswordEncoder passwordEncoder;
     private final OtpMapper mapper;
+    private final Map<SendingChannel, Consumer<String>> strategyMap;
 
-    private static final SecureRandom RANDOM = new SecureRandom();
-
+    public OtpServiceImpl(SendOtpRepository sendOtpRepository,
+                          CheckOtpRepository checkOtpRepository,
+                          PasswordEncoder passwordEncoder,
+                          OtpMapper mapper) {
+        this.sendOtpRepository = sendOtpRepository;
+        this.checkOtpRepository = checkOtpRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.mapper = mapper;
+        this.strategyMap = Map.of(
+                SendingChannel.TELEGRAM, this::actForTelegram,
+                SendingChannel.CONSOLE, this::consolePrintOtp);
+    }
     @Override
-    @Transactional
     public void generateAndSend(OtpGenerateRequest request) {
-        Optional<SendOtp> lastOpt = sendOtpRepository.findFirstByProcessIdOrderByCreateTimeDesc(request.getProcessId().toString());
-        LocalDateTime now = LocalDateTime.now();
+        String processIdAsString = request.getProcessId().toString();
+        LocalDateTime currentTime = LocalDateTime.now();
 
-        lastOpt.ifPresent(x -> {
-            if (x.getCreateTime().plusSeconds(request.getSessionTtl()).isBefore(now)) {
-                throw new OtpException("Превышено время жизни сессии для отправки ОТП");
-            }
+        List<SendOtp> sendOtpList = sendOtpRepository.findAllByProcessId(processIdAsString);
 
-            if (Duration.between(x.getCreateTime(), now).getSeconds() < request.getResendTimeout()) {
-                throw new OtpException("Превышена частота попыток отправки OTP");
-            }
-        });
+        sendOtpList.stream()
+                .max(Comparator.comparing(AuditableEntity::getCreateTime))
+                .ifPresent(lastOtp -> otpValidation(request, lastOtp, currentTime));
 
-        List<SendOtp> allForProcess = sendOtpRepository.findAllByProcessIdOrderByCreateTimeAsc(request.getProcessId().toString());
-        if (!allForProcess.isEmpty()) {
-            var firstSendOtp = allForProcess.get(0);
-            if (allForProcess.size() > firstSendOtp.getResendAttempts()) {
-                throw new OtpException("Превышено количество отправок OTP");
-            }
-        }
+        sendOtpList.stream()
+                .min(Comparator.comparing(AuditableEntity::getCreateTime))
+                .ifPresent(firstOtp -> sendingAmountOtpValidation(sendOtpList.size(), firstOtp));
 
         String otp = generateNumericOtp(request.getLength());
-        String raw = request.getProcessId().toString() + otp;
-        String encodedOtp = passwordEncoder.encode(raw);
+        String decodedOtp = processIdAsString + otp;
+        String encodedOtp = passwordEncoder.encode(decodedOtp);
         String renderedMessage = request.getMessage().replace("%s", otp);
-        SendOtp sendOtp = mapper.toSendOtp(request, encodedOtp, now);
+        SendOtp sendOtp = mapper.toSendOtp(request, encodedOtp, currentTime);
 
-        SendOtp savedSendOtp = sendOtpRepository.save(sendOtp);
-
-        Map<SendingChannel, Runnable> strategyMap = Map.of(
-                SendingChannel.TELEGRAM, this::actForTelegram,
-                SendingChannel.CONSOLE, () -> System.out.println(otp));
-        strategyMap.get(request.getSendingChannel()).run();
+        try {
+            strategyMap.get(request.getSendingChannel()).accept(otp);
+        } catch (Exception e) {
+            log.warn("Произошла ошибка при попытке обработать sendOtp", e);
+            sendOtp.setStatus(OtpSendStatus.ERROR);
+        } finally {
+            SendOtp savedSendOtp = sendOtpRepository.save(sendOtp);
+        }
     }
 
     @Override
-    @Transactional
     public void check(OtpCheckRequest request) {
         String processId = request.getProcessId().toString();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime currentTime = LocalDateTime.now();
 
-        SendOtp last = sendOtpRepository.findFirstByProcessIdOrderByCreateTimeDesc(processId)
+        SendOtp lastSendOtp = sendOtpRepository.findFirstByProcessIdOrderByCreateTimeDesc(processId)
+                .map(lastOtp -> {
+                    lifetimeValidationOtp(lastOtp, currentTime);
+                    return lastOtp;
+                })
                 .orElseThrow(() -> new OtpException("Не удалось найти информацию об отправке данного OTP"));
 
-        if (last.getCreateTime().plusSeconds(last.getTtl()).isBefore(now)) {
-            throw new OtpException("Время жизни OTP истекло");
-        }
+        checkForExistingOtp(request, processId, currentTime);
 
-        List<CheckOtp> confirmed = checkOtpRepository.findAllByProcessIdAndCorrectIsTrueAndOtp(
-                processId, request.getOtp());
+        String decodedOtp = processId + request.getOtp();
+        boolean otpMatches = passwordEncoder.matches(decodedOtp, lastSendOtp.getEncodedOtp());
 
-        if (!confirmed.isEmpty()) {
-            saveCheck(request, now, false);
-            throw new OtpException("Попытка подтверждения ранее подтвержденного пароля");
-        }
-
-        String raw = processId + request.getOtp();
-        boolean matches = passwordEncoder.matches(raw, last.getEncodedOtp());
-
-        if (!matches) {
-            saveCheck(request, now, false);
+        if (!otpMatches) {
+            saveCheck(request, currentTime, false);
             throw new OtpException("Введен неверный OTP");
         }
-        saveCheck(request, now, true);
+        saveCheck(request, currentTime, true);
     }
 
-    private void saveCheck(OtpCheckRequest request, LocalDateTime now, boolean correct) {
-        CheckOtp checkOtp = mapper.toCheckOtp(request, now, correct);
+    private void checkForExistingOtp(OtpCheckRequest request, String processId, LocalDateTime currentTime) {
+        if (checkOtpRepository.existsByProcessIdAndCorrectIsTrueAndOtp(processId, request.getOtp())) {
+            saveCheck(request, currentTime, false);
+            throw new OtpException("Попытка подтверждения ранее подтвержденного пароля");
+        }
+    }
+
+    private void lifetimeValidationOtp(SendOtp lastOtp, LocalDateTime currentTime) {
+        if (lastOtp.getCreateTime().plusSeconds(lastOtp.getTtl()).isBefore(currentTime)) {
+            throw new OtpException("Время жизни OTP истекло");
+        }
+    }
+
+    private void otpValidation(OtpGenerateRequest request, SendOtp lastSendOtp, LocalDateTime currentTime) {
+        if (lastSendOtp.getCreateTime().plusSeconds(request.getSessionTtl()).isBefore(currentTime)) {
+            throw new OtpException("Превышено время жизни сессии для отправки ОТП");
+        }
+
+        if (Duration.between(lastSendOtp.getCreateTime(), currentTime).getSeconds() < request.getResendTimeout()) {
+            throw new OtpException("Превышена частота попыток отправки OTP");
+        }
+    }
+
+    private void sendingAmountOtpValidation(int otpListSize, SendOtp firstSendOtp) {
+        if (otpListSize > firstSendOtp.getResendAttempts()) {
+            throw new OtpException("Превышено количество отправок OTP");
+        }
+    }
+
+    private void saveCheck(OtpCheckRequest request, LocalDateTime currentTime, boolean correct) {
+        CheckOtp checkOtp = mapper.toCheckOtp(request, currentTime, correct);
         checkOtpRepository.save(checkOtp);
     }
 
@@ -116,8 +143,13 @@ public class OtpServiceImpl implements OtpService {
         }
         return sb.toString();
     }
-    private void actForTelegram() {
+
+    private void actForTelegram(String otp) {
         log.debug("Будет сделана логика для TELEGRAM");
+    }
+
+    private void consolePrintOtp(String otp) {
+        System.out.println(otp);
     }
 }
 
