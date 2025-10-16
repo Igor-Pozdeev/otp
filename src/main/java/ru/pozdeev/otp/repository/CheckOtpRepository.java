@@ -9,6 +9,7 @@ import java.util.UUID;
 @Repository
 public interface CheckOtpRepository extends JpaRepository<CheckOtp, UUID> {
 
+    boolean existsByProcessIdAndCorrectIsTrueAndOtp(String processId, String otp);
 }
 
 
