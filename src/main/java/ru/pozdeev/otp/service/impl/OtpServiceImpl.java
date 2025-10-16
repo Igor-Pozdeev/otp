@@ -54,13 +54,7 @@ public class OtpServiceImpl implements OtpService {
 
         List<SendOtp> sendOtpList = sendOtpRepository.findAllByProcessId(processIdAsString);
 
-        sendOtpList.stream()
-                .max(Comparator.comparing(AuditableEntity::getCreateTime))
-                .ifPresent(lastOtp -> otpValidation(request, lastOtp, currentTime));
-
-        sendOtpList.stream()
-                .min(Comparator.comparing(AuditableEntity::getCreateTime))
-                .ifPresent(firstOtp -> sendingAmountOtpValidation(sendOtpList.size(), firstOtp));
+        otpValidation(request, sendOtpList, currentTime);
 
         String otp = generateNumericOtp(request.getLength());
         String decodedOtp = processIdAsString + otp;
@@ -70,12 +64,22 @@ public class OtpServiceImpl implements OtpService {
 
         try {
             strategyMap.get(request.getSendingChannel()).accept(otp);
+            sendOtp.setStatus(OtpSendStatus.DELIVERED);
         } catch (Exception e) {
             log.warn("Произошла ошибка при попытке обработать sendOtp", e);
             sendOtp.setStatus(OtpSendStatus.ERROR);
         } finally {
             SendOtp savedSendOtp = sendOtpRepository.save(sendOtp);
         }
+    }
+    private void otpValidation(OtpGenerateRequest request, List<SendOtp> sendOtpList, LocalDateTime currentTime) {
+        sendOtpList.stream()
+                .max(Comparator.comparing(AuditableEntity::getCreateTime))
+                .ifPresent(lastOtp -> otpValidation(request, lastOtp, currentTime));
+
+        sendOtpList.stream()
+                .min(Comparator.comparing(AuditableEntity::getCreateTime))
+                .ifPresent(firstOtp -> sendingAmountOtpValidation(sendOtpList.size(), firstOtp));
     }
 
     @Override
