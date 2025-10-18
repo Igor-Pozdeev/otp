@@ -2,9 +2,25 @@ server:
   servlet:
     context-path: /${spring.application.name}
 
+#  feature toggle для подключения к kafka
+otp:
+  kafka:
+    send-otp:
+      enabled: true
+      send-topic: Send.Otp.IN.V1
+      get-topic: Send.Otp.OUT.V1
 spring:
+  #  Настройки Kafka
+  kafka:
+    bootstrap-servers: 195.93.252.91:29092
+    producer:
+      acks: all
+    consumer:
+      group-id: mentoring-group
+  #  Настройки приложения
   application:
     name: otp
+  #  Настройки БД
   datasource:
     url: jdbc:postgresql://localhost:5433/otp
     username: dev
@@ -12,6 +28,7 @@ spring:
     hikari:
       schema: otp
       connection-init-sql: CREATE SCHEMA IF NOT EXISTS ${spring.datasource.hikari.schema};
+  #  Миграция
   liquibase:
     change-log: classpath:/db/changelog/changelog-master.yaml
   jpa:
