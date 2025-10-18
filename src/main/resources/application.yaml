@@ -16,7 +16,7 @@ spring:
     producer:
       acks: all
     consumer:
-      group-id: mentoring-group
+      group-id: ${spring.application.name}-${random.uuid}
   #  Настройки приложения
   application:
     name: otp
