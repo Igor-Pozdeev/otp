@@ -1,5 +1,6 @@
 package ru.pozdeev.otp.service.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,11 +23,10 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OtpServiceImpl implements OtpService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -41,20 +41,8 @@ public class OtpServiceImpl implements OtpService {
 
     private final Map<SendingChannel, SendingChannelService> sendingChannelStrategy;
 
-    public OtpServiceImpl(SendOtpRepository sendOtpRepository,
-                          CheckOtpRepository checkOtpRepository,
-                          PasswordEncoder passwordEncoder,
-                          OtpMapper mapper,
-                          List<SendingChannelService> sendingChannelServices) {
-        this.sendOtpRepository = sendOtpRepository;
-        this.checkOtpRepository = checkOtpRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.mapper = mapper;
-        this.strategyMap = sendingChannelServices.stream()
-                .collect(Collectors.toMap(SendingChannelService::getChannel, Function.identity()));
-    }
     @Override
-    public void generateAndSend(OtpGenerateRequest request) {
+    public void generateAndSend(OtpGenerateRequest request) throws OtpException {
         String processIdAsString = request.getProcessId().toString();
         LocalDateTime currentTime = LocalDateTime.now();
 
@@ -70,7 +58,16 @@ public class OtpServiceImpl implements OtpService {
 
         SendOtp savedSendOtp = sendOtpRepository.save(sendOtp);
 
-        strategyMap.get(request.getSendingChannel()).sendToTargetChannel(otp, savedSendOtp, renderedMessage);
+        SendingChannelService channelService = sendingChannelStrategy.get(request.getSendingChannel());
+        if (channelService == null) {
+            throw new OtpException("Неподдерживаемый канал отправки: " + request.getSendingChannel());
+        }
+
+        boolean sentSuccessfully = channelService.sendToTargetChannel(otp, savedSendOtp, renderedMessage);
+
+        if (!sentSuccessfully) {
+            throw new OtpException("Не удалось отправить OTP через канал: " + request.getSendingChannel());
+        }
     }
 
     private void otpValidation(OtpGenerateRequest request, List<SendOtp> sendOtpList, LocalDateTime currentTime) {

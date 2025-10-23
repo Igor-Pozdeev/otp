@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
-import ru.pozdeev.otp.dto.kafka.KafkaRequest;
+import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaRequest;
 import ru.pozdeev.otp.exception.OtpException;
 import ru.pozdeev.otp.util.JsonUtil;
 
@@ -19,7 +19,7 @@ import java.util.concurrent.TimeoutException;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "otp.kafka.send-otp", name = "enabled", havingValue = "true")
-public class KafkaProducer {
+public class OtpSendKafkaProducer {
 
     private final JsonUtil jsonUtil;
     private final KafkaTemplate<String, String> kafkaTemplate;
@@ -27,7 +27,7 @@ public class KafkaProducer {
     @Value("${otp.kafka.send-otp.send-topic}")
     private String topicIn;
 
-    public void sendMessage(KafkaRequest kafkaRequest) throws TimeoutException {
+    public void sendMessage(SendOtpKafkaRequest kafkaRequest) throws TimeoutException {
 
         try {
             SendResult<String, String> result = kafkaTemplate.send(topicIn, jsonUtil.toJson(kafkaRequest)).get(5, TimeUnit.SECONDS);
