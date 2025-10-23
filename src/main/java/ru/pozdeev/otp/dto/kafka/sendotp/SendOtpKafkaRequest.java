@@ -1,4 +1,4 @@
-package ru.pozdeev.otp.dto.kafka;
+package ru.pozdeev.otp.dto.kafka.sendotp;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class KafkaRequest {
+public class SendOtpKafkaRequest {
 
     private String id;
 

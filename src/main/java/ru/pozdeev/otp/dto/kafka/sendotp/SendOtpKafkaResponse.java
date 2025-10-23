@@ -1,4 +1,4 @@
-package ru.pozdeev.otp.dto.kafka;
+package ru.pozdeev.otp.dto.kafka.sendotp;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,11 +9,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class KafkaResponse {
+public class SendOtpKafkaResponse {
 
     private String id;
 
-    private KafkaResponseStatus status;
+    private SendOtpKafkaResponseStatus status;
 
     private String errorMessage;
 }

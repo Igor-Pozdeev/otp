@@ -21,6 +21,7 @@ import java.util.concurrent.TimeoutException;
 @ConditionalOnProperty(prefix = "otp.kafka.send-otp", name = "enabled", havingValue = "true")
 public class KafkaProducer {
 
+    private final JsonUtil jsonUtil;
     private final KafkaTemplate<String, String> kafkaTemplate;
 
     @Value("${otp.kafka.send-otp.send-topic}")
@@ -29,7 +30,7 @@ public class KafkaProducer {
     public void sendMessage(KafkaRequest kafkaRequest) throws TimeoutException {
 
         try {
-            SendResult<String, String> result = kafkaTemplate.send(topicIn, JsonUtil.toJson(kafkaRequest)).get(5, TimeUnit.SECONDS);
+            SendResult<String, String> result = kafkaTemplate.send(topicIn, jsonUtil.toJson(kafkaRequest)).get(5, TimeUnit.SECONDS);
 
             log.info("Запрос отправлен в кафку. Топик: {}, Партиция: {}, Offset: {}",
                     result.getRecordMetadata().topic(),

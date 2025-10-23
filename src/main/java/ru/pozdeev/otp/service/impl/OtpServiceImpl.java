@@ -39,7 +39,7 @@ public class OtpServiceImpl implements OtpService {
 
     private final OtpMapper mapper;
 
-    private final Map<SendingChannel, SendingChannelService> strategyMap;
+    private final Map<SendingChannel, SendingChannelService> sendingChannelStrategy;
 
     public OtpServiceImpl(SendOtpRepository sendOtpRepository,
                           CheckOtpRepository checkOtpRepository,
