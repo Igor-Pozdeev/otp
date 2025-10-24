@@ -2,6 +2,9 @@ server:
   servlet:
     context-path: /${spring.application.name}
 
+otp-application:
+  telegram-channel-max-timeout-ms: 5000
+
 #  feature toggle для подключения к kafka
 otp:
   kafka:

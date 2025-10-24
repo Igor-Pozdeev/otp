@@ -4,23 +4,25 @@ import org.springframework.stereotype.Service;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponse;
 import ru.pozdeev.otp.entity.SendOtp;
 import ru.pozdeev.otp.model.SendingChannel;
-import ru.pozdeev.otp.service.SendingChannelService;
+import ru.pozdeev.otp.service.Sender;
 
 @Service
-public class ConsoleChannel implements SendingChannelService {
+public class ConsoleChannel implements Sender {
 
     @Override
-    public boolean sendToTargetChannel(String otp, SendOtp sendOtp, String message) {
+    public SendOtpKafkaResponse sendToTargetChannel(String otp, SendOtp sendOtp, String message) {
         System.out.println("Одноразовый пароль: " + otp);
-        return true;
+        // Для вывода в консоль ответ из kafka не нужен
+        return null;
     }
 
     @Override
     public SendingChannel getChannel() {
         return SendingChannel.CONSOLE;
     }
+
     @Override
-    public void completeResponse(String messageKey, SendOtpKafkaResponse response) {
+    public void completeResponse(SendOtpKafkaResponse response) {
         //Имплементация не требуется
     }
 }

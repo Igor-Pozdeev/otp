@@ -4,8 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponse;
+import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponseStatus;
 import ru.pozdeev.otp.entity.AuditableEntity;
 import ru.pozdeev.otp.entity.CheckOtp;
+import ru.pozdeev.otp.entity.OtpSendStatus;
 import ru.pozdeev.otp.entity.SendOtp;
 import ru.pozdeev.otp.exception.OtpException;
 import ru.pozdeev.otp.mapper.OtpMapper;
@@ -15,7 +18,7 @@ import ru.pozdeev.otp.model.SendingChannel;
 import ru.pozdeev.otp.repository.CheckOtpRepository;
 import ru.pozdeev.otp.repository.SendOtpRepository;
 import ru.pozdeev.otp.service.OtpService;
-import ru.pozdeev.otp.service.SendingChannelService;
+import ru.pozdeev.otp.service.Sender;
 
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -23,6 +26,8 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Service
@@ -39,7 +44,7 @@ public class OtpServiceImpl implements OtpService {
 
     private final OtpMapper mapper;
 
-    private final Map<SendingChannel, SendingChannelService> sendingChannelStrategy;
+    private final Map<SendingChannel, Sender> sendingChannelStrategy;
 
     @Override
     public void generateAndSend(OtpGenerateRequest request) throws OtpException {
@@ -58,16 +63,31 @@ public class OtpServiceImpl implements OtpService {
 
         SendOtp savedSendOtp = sendOtpRepository.save(sendOtp);
 
-        SendingChannelService channelService = sendingChannelStrategy.get(request.getSendingChannel());
+        Sender channelService = sendingChannelStrategy.get(request.getSendingChannel());
         if (channelService == null) {
             throw new OtpException("Неподдерживаемый канал отправки: " + request.getSendingChannel());
         }
 
-        boolean sentSuccessfully = channelService.sendToTargetChannel(otp, savedSendOtp, renderedMessage);
+        SendOtpKafkaResponse sendOtpKafkaResponse;
+        try {
+            sendOtpKafkaResponse = channelService.sendToTargetChannel(otp, savedSendOtp, renderedMessage);
 
-        if (!sentSuccessfully) {
-            throw new OtpException("Не удалось отправить OTP через канал: " + request.getSendingChannel());
+            if (sendOtpKafkaResponse.getStatus() == SendOtpKafkaResponseStatus.SUCCESS) {
+                changeOtpStatus(sendOtp, OtpSendStatus.DELIVERED);
+            } else {
+                changeOtpStatus(sendOtp, OtpSendStatus.ERROR);
+            }
+        } catch (TimeoutException e) {
+            changeOtpStatus(sendOtp, OtpSendStatus.ERROR);
+            throw new OtpException("Таймаут ожидания ответа от сервиса отправки сообщения", e);
+        } catch (InterruptedException | ExecutionException e) {
+            throw new OtpException("Ошибка отправки сообщения в кафку", e);
         }
+    }
+
+    private void changeOtpStatus(SendOtp sendOtp, OtpSendStatus status) {
+        sendOtp.setStatus(status);
+        sendOtpRepository.save(sendOtp);
     }
 
     private void otpValidation(OtpGenerateRequest request, List<SendOtp> sendOtpList, LocalDateTime currentTime) {

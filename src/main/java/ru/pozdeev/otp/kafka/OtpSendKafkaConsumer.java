@@ -8,7 +8,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponse;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponseStatus;
@@ -16,7 +15,7 @@ import ru.pozdeev.otp.entity.OtpSendStatus;
 import ru.pozdeev.otp.entity.SendOtp;
 import ru.pozdeev.otp.exception.OtpException;
 import ru.pozdeev.otp.repository.SendOtpRepository;
-import ru.pozdeev.otp.service.SendingChannelService;
+import ru.pozdeev.otp.service.Sender;
 import ru.pozdeev.otp.util.JsonUtil;
 
 @Slf4j
@@ -29,11 +28,10 @@ public class OtpSendKafkaConsumer {
     private final SendOtpRepository sendOtpRepository;
 
     @Qualifier("telegramChannel")
-    private final SendingChannelService telegramSendingChannel;
+    private final Sender telegramSendingChannel;
 
     @KafkaListener(topics = "${otp.kafka.send-otp.get-topic}")
     public void consume(ConsumerRecord<String, String> consumerRecord,
-                        @Payload String payload,
                         @Header(KafkaHeaders.GROUP_ID) String groupId) {
 
         log.info("Ответ от кафки получен. Топик: {}, Партиция: {}, Offset: {}, Key: {}, GroupId: {}",
@@ -43,12 +41,12 @@ public class OtpSendKafkaConsumer {
                 consumerRecord.key(), groupId);
 
         try {
-            SendOtpKafkaResponse kafkaResponse = jsonUtil.fromJson(payload, SendOtpKafkaResponse.class);
+            SendOtpKafkaResponse kafkaResponse = jsonUtil.fromJson(consumerRecord.value(), SendOtpKafkaResponse.class);
 
             SendOtp sendOtp = sendOtpRepository.findBySendMessageKey(kafkaResponse.getId())
                     .orElseThrow(() -> new OtpException(String.format("Не найден SendOtp с ID: %s, пропускаем обработку", kafkaResponse.getId())));
 
-            telegramSendingChannel.completeResponse(kafkaResponse.getId(), kafkaResponse);
+            telegramSendingChannel.completeResponse(kafkaResponse);
 
             if (kafkaResponse.getStatus() == SendOtpKafkaResponseStatus.SUCCESS) {
                 sendOtp.setStatus(OtpSendStatus.DELIVERED);

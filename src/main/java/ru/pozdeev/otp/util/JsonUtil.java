@@ -3,8 +3,10 @@ package ru.pozdeev.otp.util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 import ru.pozdeev.otp.exception.OtpException;
 
+@Component
 @RequiredArgsConstructor
 public class JsonUtil {
 
