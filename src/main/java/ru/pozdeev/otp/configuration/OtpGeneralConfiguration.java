@@ -3,7 +3,7 @@ package ru.pozdeev.otp.configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import ru.pozdeev.otp.model.SendingChannel;
-import ru.pozdeev.otp.service.Sender;
+import ru.pozdeev.otp.sender.Sender;
 
 import java.util.List;
 import java.util.Map;

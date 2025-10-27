@@ -1,16 +1,16 @@
-package ru.pozdeev.otp.service.impl;
+package ru.pozdeev.otp.sender.impl;
 
 import org.springframework.stereotype.Service;
-import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponse;
+import ru.pozdeev.otp.dto.common.CommonResponse;
 import ru.pozdeev.otp.entity.SendOtp;
 import ru.pozdeev.otp.model.SendingChannel;
-import ru.pozdeev.otp.service.Sender;
+import ru.pozdeev.otp.sender.Sender;
 
 @Service
-public class ConsoleChannel implements Sender {
+public class ConsoleSender implements Sender<Void> {
 
     @Override
-    public SendOtpKafkaResponse sendToTargetChannel(String otp, SendOtp sendOtp, String message) {
+    public CommonResponse<Void> sendToTargetChannel(String otp, SendOtp sendOtp, String message) {
         System.out.println("Одноразовый пароль: " + otp);
         // Для вывода в консоль ответ из kafka не нужен
         return null;
@@ -22,7 +22,7 @@ public class ConsoleChannel implements Sender {
     }
 
     @Override
-    public void completeResponse(SendOtpKafkaResponse response) {
+    public void completeResponse(Void response) {
         //Имплементация не требуется
     }
 }

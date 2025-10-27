@@ -1,6 +1,5 @@
 package ru.pozdeev.otp.kafka;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -15,21 +14,23 @@ import ru.pozdeev.otp.entity.OtpSendStatus;
 import ru.pozdeev.otp.entity.SendOtp;
 import ru.pozdeev.otp.exception.OtpException;
 import ru.pozdeev.otp.repository.SendOtpRepository;
-import ru.pozdeev.otp.service.Sender;
+import ru.pozdeev.otp.sender.Sender;
 import ru.pozdeev.otp.util.JsonUtil;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "otp.kafka.send-otp", name = "enabled", havingValue = "true")
 public class OtpSendKafkaConsumer {
 
     private final JsonUtil jsonUtil;
     private final SendOtpRepository sendOtpRepository;
+    private final Sender<SendOtpKafkaResponse> telegramSender;
 
-    @Qualifier("telegramChannel")
-    private final Sender telegramSendingChannel;
-
+    public OtpSendKafkaConsumer(JsonUtil jsonUtil, SendOtpRepository sendOtpRepository, @Qualifier("telegramSender") Sender telegramSender) {
+        this.jsonUtil = jsonUtil;
+        this.sendOtpRepository = sendOtpRepository;
+        this.telegramSender = telegramSender;
+    }
     @KafkaListener(topics = "${otp.kafka.send-otp.get-topic}")
     public void consume(ConsumerRecord<String, String> consumerRecord,
                         @Header(KafkaHeaders.GROUP_ID) String groupId) {
@@ -46,7 +47,7 @@ public class OtpSendKafkaConsumer {
             SendOtp sendOtp = sendOtpRepository.findBySendMessageKey(kafkaResponse.getId())
                     .orElseThrow(() -> new OtpException(String.format("Не найден SendOtp с ID: %s, пропускаем обработку", kafkaResponse.getId())));
 
-            telegramSendingChannel.completeResponse(kafkaResponse);
+            telegramSender.completeResponse(kafkaResponse);
 
             if (kafkaResponse.getStatus() == SendOtpKafkaResponseStatus.SUCCESS) {
                 sendOtp.setStatus(OtpSendStatus.DELIVERED);

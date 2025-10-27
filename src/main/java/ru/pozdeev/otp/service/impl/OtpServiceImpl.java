@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import ru.pozdeev.otp.dto.common.CommonResponse;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponse;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponseStatus;
 import ru.pozdeev.otp.entity.AuditableEntity;
@@ -17,8 +18,8 @@ import ru.pozdeev.otp.model.OtpGenerateRequest;
 import ru.pozdeev.otp.model.SendingChannel;
 import ru.pozdeev.otp.repository.CheckOtpRepository;
 import ru.pozdeev.otp.repository.SendOtpRepository;
+import ru.pozdeev.otp.sender.Sender;
 import ru.pozdeev.otp.service.OtpService;
-import ru.pozdeev.otp.service.Sender;
 
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -27,7 +28,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Service
@@ -68,18 +68,16 @@ public class OtpServiceImpl implements OtpService {
             throw new OtpException("Неподдерживаемый канал отправки: " + request.getSendingChannel());
         }
 
-        SendOtpKafkaResponse sendOtpKafkaResponse;
         try {
-            sendOtpKafkaResponse = channelService.sendToTargetChannel(otp, savedSendOtp, renderedMessage);
+            CommonResponse<SendOtpKafkaResponse> commonResponse = channelService.sendToTargetChannel(otp, savedSendOtp, renderedMessage);
+            SendOtpKafkaResponse sendOtpKafkaResponse = commonResponse.getBody();
 
             if (sendOtpKafkaResponse.getStatus() == SendOtpKafkaResponseStatus.SUCCESS) {
                 changeOtpStatus(sendOtp, OtpSendStatus.DELIVERED);
             } else {
                 changeOtpStatus(sendOtp, OtpSendStatus.ERROR);
+                throw new OtpException(sendOtpKafkaResponse.getErrorMessage());
             }
-        } catch (TimeoutException e) {
-            changeOtpStatus(sendOtp, OtpSendStatus.ERROR);
-            throw new OtpException("Таймаут ожидания ответа от сервиса отправки сообщения", e);
         } catch (InterruptedException | ExecutionException e) {
             throw new OtpException("Ошибка отправки сообщения в кафку", e);
         }
