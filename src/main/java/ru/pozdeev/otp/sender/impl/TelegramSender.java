@@ -4,10 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import ru.pozdeev.otp.dto.common.CommonResponse;
+import ru.pozdeev.otp.dto.common.SendingResult;
+import ru.pozdeev.otp.dto.common.SendingResultStatus;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaRequest;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponse;
-import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponseStatus;
 import ru.pozdeev.otp.entity.SendOtp;
 import ru.pozdeev.otp.kafka.OtpSendKafkaProducer;
 import ru.pozdeev.otp.model.SendingChannel;
@@ -29,7 +29,7 @@ public class TelegramSender implements Sender<SendOtpKafkaResponse> {
     private final Map<String, CompletableFuture<SendOtpKafkaResponse>> pendingResponses = new ConcurrentHashMap<>();
 
     @Override
-    public CommonResponse<SendOtpKafkaResponse> sendToTargetChannel(String otp, SendOtp sendOtp, String message) throws ExecutionException, InterruptedException {
+    public SendingResult sendToTargetChannel(String otp, SendOtp sendOtp, String message) throws ExecutionException, InterruptedException {
         SendOtpKafkaRequest kafkaRequest = SendOtpKafkaRequest.builder()
                 .id(sendOtp.getSendMessageKey())
                 .telegramChatId(sendOtp.getTarget())
@@ -38,20 +38,22 @@ public class TelegramSender implements Sender<SendOtpKafkaResponse> {
 
         CompletableFuture<SendOtpKafkaResponse> responseFuture = new CompletableFuture<>();
         pendingResponses.put(sendOtp.getSendMessageKey(), responseFuture);
-        CommonResponse.CommonResponseBuilder<SendOtpKafkaResponse> commonResponseBuilder = CommonResponse.builder();
         try {
             kafkaProducer.sendMessage(kafkaRequest);
+            SendOtpKafkaResponse sendOtpKafkaResponse = responseFuture.get(maxTimeout, TimeUnit.MILLISECONDS);
+            log.info("Получен ответ от сервиса отправки ОТР в телеграм. Ответ: {}", sendOtpKafkaResponse);
 
-            return commonResponseBuilder.body(responseFuture.get(maxTimeout, TimeUnit.MILLISECONDS)).build();
+            return SendingResult.builder()
+                    .status(SendingResultStatus.getStatus(sendOtpKafkaResponse.getStatus()))
+                    .errorMessage(sendOtpKafkaResponse.getErrorMessage())
+                    .build();
         } catch (TimeoutException e) {
             log.warn("Таймаут ожидания ответа от сервиса отправки OTP в телеграм: {}", sendOtp.getSendMessageKey());
-            final SendOtpKafkaResponse sendOtpKafkaResponse = SendOtpKafkaResponse.builder()
-                    .id(sendOtp.getSendMessageKey())
-                    .status(SendOtpKafkaResponseStatus.ERROR)
+
+            return SendingResult.builder()
+                    .status(SendingResultStatus.ERROR)
                     .errorMessage("Таймаут ожидания ответа от сервиса отправки")
                     .build();
-
-            return commonResponseBuilder.body(sendOtpKafkaResponse).build();
         }
     }
 

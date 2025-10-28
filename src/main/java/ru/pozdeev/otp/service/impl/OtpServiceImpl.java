@@ -4,9 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import ru.pozdeev.otp.dto.common.CommonResponse;
-import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponse;
-import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponseStatus;
+import ru.pozdeev.otp.dto.common.SendingResult;
+import ru.pozdeev.otp.dto.common.SendingResultStatus;
 import ru.pozdeev.otp.entity.AuditableEntity;
 import ru.pozdeev.otp.entity.CheckOtp;
 import ru.pozdeev.otp.entity.OtpSendStatus;
@@ -69,14 +68,13 @@ public class OtpServiceImpl implements OtpService {
         }
 
         try {
-            CommonResponse<SendOtpKafkaResponse> commonResponse = channelService.sendToTargetChannel(otp, savedSendOtp, renderedMessage);
-            SendOtpKafkaResponse sendOtpKafkaResponse = commonResponse.getBody();
+            SendingResult sendingResult = channelService.sendToTargetChannel(otp, savedSendOtp, renderedMessage);
 
-            if (sendOtpKafkaResponse.getStatus() == SendOtpKafkaResponseStatus.SUCCESS) {
+            if (sendingResult.getStatus() == SendingResultStatus.SUCCESS) {
                 changeOtpStatus(sendOtp, OtpSendStatus.DELIVERED);
             } else {
                 changeOtpStatus(sendOtp, OtpSendStatus.ERROR);
-                throw new OtpException(sendOtpKafkaResponse.getErrorMessage());
+                throw new OtpException(sendingResult.getErrorMessage());
             }
         } catch (InterruptedException | ExecutionException e) {
             throw new OtpException("Ошибка отправки сообщения в кафку", e);
