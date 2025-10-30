@@ -1,8 +1,11 @@
 package ru.pozdeev.otp.service.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import ru.pozdeev.otp.dto.common.SendingResult;
+import ru.pozdeev.otp.dto.common.SendingResultStatus;
 import ru.pozdeev.otp.entity.AuditableEntity;
 import ru.pozdeev.otp.entity.CheckOtp;
 import ru.pozdeev.otp.entity.OtpSendStatus;
@@ -14,6 +17,7 @@ import ru.pozdeev.otp.model.OtpGenerateRequest;
 import ru.pozdeev.otp.model.SendingChannel;
 import ru.pozdeev.otp.repository.CheckOtpRepository;
 import ru.pozdeev.otp.repository.SendOtpRepository;
+import ru.pozdeev.otp.sender.Sender;
 import ru.pozdeev.otp.service.OtpService;
 
 import java.security.SecureRandom;
@@ -22,33 +26,27 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OtpServiceImpl implements OtpService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
-    private final SendOtpRepository sendOtpRepository;
-    private final CheckOtpRepository checkOtpRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final OtpMapper mapper;
-    private final Map<SendingChannel, Consumer<String>> strategyMap;
 
-    public OtpServiceImpl(SendOtpRepository sendOtpRepository,
-                          CheckOtpRepository checkOtpRepository,
-                          PasswordEncoder passwordEncoder,
-                          OtpMapper mapper) {
-        this.sendOtpRepository = sendOtpRepository;
-        this.checkOtpRepository = checkOtpRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.mapper = mapper;
-        this.strategyMap = Map.of(
-                SendingChannel.TELEGRAM, this::actForTelegram,
-                SendingChannel.CONSOLE, this::consolePrintOtp);
-    }
+    private final SendOtpRepository sendOtpRepository;
+
+    private final CheckOtpRepository checkOtpRepository;
+
+    private final PasswordEncoder passwordEncoder;
+
+    private final OtpMapper mapper;
+
+    private final Map<SendingChannel, Sender> sendingChannelStrategy;
+
     @Override
-    public void generateAndSend(OtpGenerateRequest request) {
+    public void generateAndSend(OtpGenerateRequest request) throws OtpException {
         String processIdAsString = request.getProcessId().toString();
         LocalDateTime currentTime = LocalDateTime.now();
 
@@ -62,16 +60,32 @@ public class OtpServiceImpl implements OtpService {
         String renderedMessage = request.getMessage().replace("%s", otp);
         SendOtp sendOtp = mapper.toSendOtp(request, encodedOtp, currentTime);
 
+        SendOtp savedSendOtp = sendOtpRepository.save(sendOtp);
+
+        Sender channelService = sendingChannelStrategy.get(request.getSendingChannel());
+        if (channelService == null) {
+            throw new OtpException("Неподдерживаемый канал отправки: " + request.getSendingChannel());
+        }
+
         try {
-            strategyMap.get(request.getSendingChannel()).accept(otp);
-            sendOtp.setStatus(OtpSendStatus.DELIVERED);
-        } catch (Exception e) {
-            log.warn("Произошла ошибка при попытке обработать sendOtp", e);
-            sendOtp.setStatus(OtpSendStatus.ERROR);
-        } finally {
-            SendOtp savedSendOtp = sendOtpRepository.save(sendOtp);
+            SendingResult sendingResult = channelService.sendToTargetChannel(otp, savedSendOtp, renderedMessage);
+
+            if (sendingResult.getStatus() == SendingResultStatus.SUCCESS) {
+                changeOtpStatus(sendOtp, OtpSendStatus.DELIVERED);
+            } else {
+                changeOtpStatus(sendOtp, OtpSendStatus.ERROR);
+                throw new OtpException(sendingResult.getErrorMessage());
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            throw new OtpException("Ошибка отправки сообщения в кафку", e);
         }
     }
+
+    private void changeOtpStatus(SendOtp sendOtp, OtpSendStatus status) {
+        sendOtp.setStatus(status);
+        sendOtpRepository.save(sendOtp);
+    }
+
     private void otpValidation(OtpGenerateRequest request, List<SendOtp> sendOtpList, LocalDateTime currentTime) {
         sendOtpList.stream()
                 .max(Comparator.comparing(AuditableEntity::getCreateTime))
@@ -146,14 +160,6 @@ public class OtpServiceImpl implements OtpService {
             sb.append(RANDOM.nextInt(10));
         }
         return sb.toString();
-    }
-
-    private void actForTelegram(String otp) {
-        log.debug("Будет сделана логика для TELEGRAM");
-    }
-
-    private void consolePrintOtp(String otp) {
-        System.out.println(otp);
     }
 }
 
