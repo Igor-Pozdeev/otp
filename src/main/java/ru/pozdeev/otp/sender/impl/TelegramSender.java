@@ -1,6 +1,5 @@
 package ru.pozdeev.otp.sender.impl;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,15 +17,19 @@ import java.util.concurrent.*;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TelegramSender implements Sender<SendOtpKafkaResponse> {
 
     private final OtpSendKafkaProducer kafkaProducer;
 
-    @Value("${otp.kafka.send-otp.telegram-channel-max-timeout-ms}")
-    private Integer maxTimeout;
+    private final Integer maxTimeout;
 
     private final Map<String, CompletableFuture<SendOtpKafkaResponse>> pendingResponses = new ConcurrentHashMap<>();
+
+    public TelegramSender(OtpSendKafkaProducer kafkaProducer,
+                          @Value("${otp.kafka.send-otp.telegram-channel-max-timeout-ms}") Integer maxTimeout) {
+        this.kafkaProducer = kafkaProducer;
+        this.maxTimeout = maxTimeout;
+    }
 
     @Override
     public SendingResult sendToTargetChannel(String otp, SendOtp sendOtp, String message) throws ExecutionException, InterruptedException {

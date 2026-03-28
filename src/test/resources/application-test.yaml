@@ -1,0 +1,4 @@
+otp:
+  kafka:
+    send-otp:
+      telegram-channel-max-timeout-ms: 15000

@@ -3,17 +3,14 @@ package ru.pozdeev.otp.sender.impl;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 import ru.pozdeev.otp.dto.common.SendingResult;
 import ru.pozdeev.otp.dto.common.SendingResultStatus;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponse;
 import ru.pozdeev.otp.dto.kafka.sendotp.SendOtpKafkaResponseStatus;
 import ru.pozdeev.otp.entity.SendOtp;
 import ru.pozdeev.otp.kafka.OtpSendKafkaProducer;
-import ru.pozdeev.otp.model.SendingChannel;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,7 +27,6 @@ class TelegramSenderUnitTest {
     @Mock
     private OtpSendKafkaProducer kafkaProducer;
 
-    @InjectMocks
     private TelegramSender telegramSender;
 
     @Nested
@@ -38,7 +34,7 @@ class TelegramSenderUnitTest {
 
         @Test
         void when_sendToTargetChannel_successResponse_then_returnSuccess() throws Exception {
-            ReflectionTestUtils.setField(telegramSender, "maxTimeout", 5000);
+            telegramSender = new TelegramSender(kafkaProducer, 5000);
             String messageKey = UUID.randomUUID().toString();
             SendOtp sendOtp = new SendOtp();
             sendOtp.setSendMessageKey(messageKey);
@@ -60,7 +56,7 @@ class TelegramSenderUnitTest {
 
         @Test
         void when_sendToTargetChannel_timeout_then_returnError() throws Exception {
-            ReflectionTestUtils.setField(telegramSender, "maxTimeout", 100);
+            telegramSender = new TelegramSender(kafkaProducer, 100);
             String messageKey = UUID.randomUUID().toString();
             SendOtp sendOtp = new SendOtp();
             sendOtp.setSendMessageKey(messageKey);
@@ -72,17 +68,6 @@ class TelegramSenderUnitTest {
                     () -> assertEquals(SendingResultStatus.ERROR, result.getStatus()),
                     () -> assertEquals("Таймаут ожидания ответа от сервиса отправки", result.getErrorMessage())
             );
-        }
-    }
-
-    @Nested
-    class GetChannel {
-
-        @Test
-        void when_getChannel_then_returnTelegram() {
-            SendingChannel channel = telegramSender.getChannel();
-
-            assertEquals(SendingChannel.TELEGRAM, channel);
         }
     }
 }
