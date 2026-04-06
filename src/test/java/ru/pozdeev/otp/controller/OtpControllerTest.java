@@ -1,130 +1,199 @@
 package ru.pozdeev.otp.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
+import ru.pozdeev.otp.AbstractTest;
 import ru.pozdeev.otp.dto.common.CommonRequest;
 import ru.pozdeev.otp.model.OtpCheckRequest;
 import ru.pozdeev.otp.model.OtpGenerateRequest;
+import ru.pozdeev.otp.model.SendingChannel;
 import ru.pozdeev.otp.service.OtpService;
 import ru.pozdeev.otp.testutil.TestRequestsUtil;
 
+import java.util.UUID;
 import java.util.stream.Stream;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static ru.pozdeev.otp.testutil.TestRequestsUtil.otpRequestBuilder;
 
-@WebMvcTest(controllers = OtpController.class)
-class OtpControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+class OtpControllerTest extends AbstractTest {
 
     @MockitoBean
     private OtpService otpService;
 
-    @Test
-    @DisplayName("Метод generateAndSend получает валидный запрос и возвращает статус OK")
-    void when_generateAndSend_takesValidRequest_then_ok() throws Exception {
-        OtpGenerateRequest body = TestRequestsUtil.defaultOtpGenerateRequest();
-
-        CommonRequest<OtpGenerateRequest> request = CommonRequest.<OtpGenerateRequest>builder()
-                .body(body)
-                .build();
-
-        mockMvc.perform(post("/api/v1/otp/generateAndSend")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk());
+    @BeforeEach
+    void setUp() {
+        doNothing().when(otpService).generateAndSend(any());
+        doNothing().when(otpService).check(any());
     }
 
-    @Test
-    @DisplayName("Метод generateAndSend получает body == null -> возвращается статус 400")
-    void when_generateAndSend_bodyIsNull_then_badRequest() throws Exception {
-        CommonRequest<OtpGenerateRequest> request = CommonRequest.<OtpGenerateRequest>builder()
-                .body(null)
-                .build();
+    @Nested
+    class GenerateAndSend {
 
-        mockMvc.perform(post("/api/v1/otp/generateAndSend")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+        @Test
+        void when_generateAndSend_withValidRequest_then_ok() throws Exception {
+            OtpGenerateRequest body = TestRequestsUtil.defaultOtpGenerateRequest();
+            CommonRequest<OtpGenerateRequest> request = new CommonRequest<>(body);
+
+            mockMvc.perform(post("/api/v1/otp/generateAndSend")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").exists())
+                    .andExpect(jsonPath("$.body").doesNotExist())
+                    .andExpect(jsonPath("$.errorMessage").doesNotExist())
+                    .andExpect(jsonPath("$.validationErrors").doesNotExist());
+        }
+
+        @Test
+        void when_generateAndSend_withNullBody_then_badRequest() throws Exception {
+            CommonRequest<OtpGenerateRequest> request = CommonRequest.<OtpGenerateRequest>builder()
+                    .body(null)
+                    .build();
+
+            mockMvc.perform(post("/api/v1/otp/generateAndSend")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorMessage").value("Ошибка валидации"))
+                    .andExpect(jsonPath("$.validationErrors[?(@.field == 'body')]").exists());
+        }
+
+        @ParameterizedTest
+        @MethodSource("invalidGenerateRequests")
+        void when_generateAndSend_withInvalidRequest_then_returnBadRequest(OtpGenerateRequest body, String expectedField) throws Exception {
+            CommonRequest<OtpGenerateRequest> request = new CommonRequest<>(body);
+
+            mockMvc.perform(post("/api/v1/otp/generateAndSend")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorMessage").value("Ошибка валидации"))
+                    .andExpect(jsonPath("$.validationErrors[?(@.field == 'body.%s')]".formatted(expectedField)).exists());
+        }
+
+        static Stream<Arguments> invalidGenerateRequests() {
+            return Stream.of(
+                    Arguments.of(createValidGenerateRequestBuilder().processId(null).build(), "processId"),
+                    Arguments.of(createValidGenerateRequestBuilder().sendingChannel(null).build(), "sendingChannel"),
+                    Arguments.of(createValidGenerateRequestBuilder().target(null).build(), "target"),
+                    Arguments.of(createValidGenerateRequestBuilder().target("").build(), "target"),
+                    Arguments.of(createValidGenerateRequestBuilder().message(null).build(), "message"),
+                    Arguments.of(createValidGenerateRequestBuilder().message(" ").build(), "message"),
+                    Arguments.of(createValidGenerateRequestBuilder().length(3).build(), "length"),
+                    Arguments.of(createValidGenerateRequestBuilder().length(13).build(), "length"),
+                    Arguments.of(createValidGenerateRequestBuilder().length(null).build(), "length"),
+                    Arguments.of(createValidGenerateRequestBuilder().ttl(29).build(), "ttl"),
+                    Arguments.of(createValidGenerateRequestBuilder().ttl(null).build(), "ttl"),
+                    Arguments.of(createValidGenerateRequestBuilder().sessionTtl(59).build(), "sessionTtl"),
+                    Arguments.of(createValidGenerateRequestBuilder().sessionTtl(null).build(), "sessionTtl"),
+                    Arguments.of(createValidGenerateRequestBuilder().resendAttempts(0).build(), "resendAttempts"),
+                    Arguments.of(createValidGenerateRequestBuilder().resendAttempts(4).build(), "resendAttempts"),
+                    Arguments.of(createValidGenerateRequestBuilder().resendAttempts(null).build(), "resendAttempts"),
+                    Arguments.of(createValidGenerateRequestBuilder().resendTimeout(29).build(), "resendTimeout"),
+                    Arguments.of(createValidGenerateRequestBuilder().resendTimeout(null).build(), "resendTimeout")
+            );
+        }
+
+        private static OtpGenerateRequest.OtpGenerateRequestBuilder createValidGenerateRequestBuilder() {
+            return OtpGenerateRequest.builder()
+                    .processId(UUID.randomUUID())
+                    .sendingChannel(SendingChannel.CONSOLE)
+                    .target("test@example.com")
+                    .message("Code: %s")
+                    .length(6)
+                    .ttl(300)
+                    .sessionTtl(600)
+                    .resendAttempts(3)
+                    .resendTimeout(60);
+        }
+
+        @Test
+        void when_generateAndSend_withInvalidEnumValue_then_returnBadRequest() throws Exception {
+            String jsonWithInvalidEnum = """
+                    {
+                        "body": {
+                            "processId": "%s",
+                            "sendingChannel": "INVALID_CHANNEL",
+                            "target": "target",
+                            "message": "message",
+                            "length": 6,
+                            "ttl": 300,
+                            "sessionTtl": 600,
+                            "resendAttempts": 3,
+                            "resendTimeout": 60
+                        }
+                    }
+                    """.formatted(UUID.randomUUID());
+
+            mockMvc.perform(post("/api/v1/otp/generateAndSend")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(jsonWithInvalidEnum))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorMessage").value(containsString("Ошибка валидации, указан некорректный формат поля 'body.sendingChannel'")));
+        }
     }
 
-    @ParameterizedTest
-    @MethodSource(value = "generateAndSendProvider")
-    @DisplayName("Параметризованный тест для generateAndSend: валидация всех полей")
-    void when_generateAndSend_parametrized_then_badRequest(OtpGenerateRequest otpGenerateRequest, String pointer, String message) throws Exception {
-        CommonRequest<OtpGenerateRequest> request = CommonRequest.<OtpGenerateRequest>builder()
-                .body(otpGenerateRequest)
-                .build();
+    @Nested
+    class Check {
 
-        mockMvc.perform(post("/api/v1/otp/generateAndSend")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errorMessage").value("Ошибка валидации"))
-                .andExpect(jsonPath("$.validationErrors[0].field").value(pointer))
-                .andExpect(jsonPath("$.validationErrors[0].message").value(message));
-    }
+        @Test
+        void when_check_withValidRequest_then_ok() throws Exception {
+            OtpCheckRequest body = new OtpCheckRequest(UUID.randomUUID(), "123456");
+            CommonRequest<OtpCheckRequest> request = new CommonRequest<>(body);
 
-    @Test
-    @DisplayName("Метод check получает body == null -> возвращается статус 400")
-    void when_check_bodyIsNull_then_badRequest() throws Exception {
-        CommonRequest<OtpCheckRequest> request = CommonRequest.<OtpCheckRequest>builder()
-                .body(null)
-                .build();
+            mockMvc.perform(post("/api/v1/otp/check")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").exists())
+                    .andExpect(jsonPath("$.body").doesNotExist())
+                    .andExpect(jsonPath("$.errorMessage").doesNotExist())
+                    .andExpect(jsonPath("$.validationErrors").doesNotExist());
+        }
 
-        mockMvc.perform(post("/api/v1/otp/check")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
+        @ParameterizedTest
+        @MethodSource("invalidCheckRequests")
+        void when_check_withInvalidRequest_then_returnBadRequest(OtpCheckRequest body, String expectedField) throws Exception {
+            CommonRequest<OtpCheckRequest> request = new CommonRequest<>(body);
 
-    @ParameterizedTest
-    @MethodSource("checkProvider")
-    @DisplayName("Параметризованный тест для check: валидация всех полей")
-    void when_check_parametrized_then_badRequest(OtpCheckRequest checkRequest) throws Exception {
-        CommonRequest<OtpCheckRequest> request = CommonRequest.<OtpCheckRequest>builder()
-                .body(checkRequest)
-                .build();
+            mockMvc.perform(post("/api/v1/otp/check")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorMessage").value("Ошибка валидации"))
+                    .andExpect(jsonPath("$.validationErrors[?(@.field == 'body.%s')]".formatted(expectedField)).exists());
+        }
 
-        mockMvc.perform(post("/api/v1/otp/check")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
+        @Test
+        void when_check_withNullBody_then_returnBadRequest() throws Exception {
+            CommonRequest<OtpCheckRequest> request = new CommonRequest<>(null);
 
-    private static Stream<Arguments> generateAndSendProvider() {
-        return Stream.of(Arguments.of(otpRequestBuilder().ttl(null).build(), "body.ttl", "must not be null"),
-                Arguments.of(otpRequestBuilder().length(null).build(), "body.length", "must not be null"),
-                Arguments.of(otpRequestBuilder().length(13).build(), "body.length", "must be between 4 and 12"),
-                Arguments.of(otpRequestBuilder().processId(null).build(), "body.processId", "must not be null"),
-                Arguments.of(otpRequestBuilder().sendingChannel(null).build(), "body.sendingChannel", "must not be null"),
-                Arguments.of(otpRequestBuilder().target("").build(), "body.target", "must not be blank"),
-                Arguments.of(otpRequestBuilder().ttl(13).build(), "body.ttl", "must be greater than or equal to 30"),
-                Arguments.of(otpRequestBuilder().sessionTtl(null).build(), "body.sessionTtl", "must not be null")
-        );
-    }
+            mockMvc.perform(post("/api/v1/otp/check")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorMessage").value("Ошибка валидации"))
+                    .andExpect(jsonPath("$.validationErrors[?(@.field == 'body')]").exists());
+        }
 
-    private static Stream<Arguments> checkProvider() {
-        return Stream.of(Arguments.of(new OtpCheckRequest(null, null)),
-                Arguments.of(new OtpCheckRequest(null, " ")),
-                Arguments.of(new OtpCheckRequest(null, "")));
+        static Stream<Arguments> invalidCheckRequests() {
+            return Stream.of(
+                    Arguments.of(new OtpCheckRequest(null, "123456"), "processId"),
+                    Arguments.of(new OtpCheckRequest(UUID.randomUUID(), null), "otp"),
+                    Arguments.of(new OtpCheckRequest(UUID.randomUUID(), ""), "otp"),
+                    Arguments.of(new OtpCheckRequest(UUID.randomUUID(), " "), "otp")
+            );
+        }
     }
 }
-
-

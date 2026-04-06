@@ -51,10 +51,10 @@ public class OtpSendKafkaConsumer {
 
             if (kafkaResponse.getStatus() == SendOtpKafkaResponseStatus.SUCCESS) {
                 sendOtp.setStatus(OtpSendStatus.DELIVERED);
-                log.info("OTP с ID {} успешно доставлен через Kafka", kafkaResponse.getId());
+                log.info("OTP с ID {} успешно доставлен через Kafka. Статус в БД обновлен.", kafkaResponse.getId());
             } else {
                 sendOtp.setStatus(OtpSendStatus.ERROR);
-                log.warn("Ошибка доставки OTP с ID {} через Kafka: {}", kafkaResponse.getId(), kafkaResponse.getErrorMessage());
+                log.warn("Ошибка доставки OTP с ID {} через Kafka: {}. Статус в БД обновлен.", kafkaResponse.getId(), kafkaResponse.getErrorMessage());
             }
 
             sendOtpRepository.save(sendOtp);
