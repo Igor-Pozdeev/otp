@@ -33,7 +33,6 @@ public class OtpSendKafkaProducer {
 
     public void sendMessage(SendOtpKafkaRequest kafkaRequest) throws TimeoutException {
         try {
-            MDC.put(MDC_KAFKA_TOPIC, topicIn);
             MDC.put(MDC_KAFKA_MESSAGE_ID, kafkaRequest.getId());
 
             SendResult<String, String> result = kafkaTemplate.send(topicIn, jsonUtil.toJson(kafkaRequest)).get(5, TimeUnit.SECONDS);
