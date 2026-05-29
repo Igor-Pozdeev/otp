@@ -2,6 +2,7 @@ package ru.pozdeev.otp.kafka;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -17,6 +18,13 @@ import ru.pozdeev.otp.repository.SendOtpRepository;
 import ru.pozdeev.otp.sender.Sender;
 import ru.pozdeev.otp.util.JsonUtil;
 
+import static ru.pozdeev.otp.util.Constants.MDC_KAFKA_GROUP_ID;
+import static ru.pozdeev.otp.util.Constants.MDC_KAFKA_KEY;
+import static ru.pozdeev.otp.util.Constants.MDC_KAFKA_MESSAGE_ID;
+import static ru.pozdeev.otp.util.Constants.MDC_KAFKA_OFFSET;
+import static ru.pozdeev.otp.util.Constants.MDC_KAFKA_PARTITION;
+import static ru.pozdeev.otp.util.Constants.MDC_KAFKA_TOPIC;
+
 @Slf4j
 @Service
 @ConditionalOnProperty(prefix = "otp.kafka.send-otp", name = "enabled", havingValue = "true")
@@ -31,18 +39,21 @@ public class OtpSendKafkaConsumer {
         this.sendOtpRepository = sendOtpRepository;
         this.telegramSender = telegramSender;
     }
+
     @KafkaListener(topics = "${otp.kafka.send-otp.get-topic}")
     public void consume(ConsumerRecord<String, String> consumerRecord,
                         @Header(KafkaHeaders.GROUP_ID) String groupId) {
-
-        log.info("Ответ от кафки получен. Топик: {}, Партиция: {}, Offset: {}, Key: {}, GroupId: {}",
-                consumerRecord.topic(),
-                consumerRecord.partition(),
-                consumerRecord.offset(),
-                consumerRecord.key(), groupId);
-
         try {
+            MDC.put(MDC_KAFKA_TOPIC, consumerRecord.topic());
+            MDC.put(MDC_KAFKA_PARTITION, String.valueOf(consumerRecord.partition()));
+            MDC.put(MDC_KAFKA_OFFSET, String.valueOf(consumerRecord.offset()));
+            MDC.put(MDC_KAFKA_KEY, consumerRecord.key());
+            MDC.put(MDC_KAFKA_GROUP_ID, groupId);
+
+            log.info("Ответ от кафки получен");
+
             SendOtpKafkaResponse kafkaResponse = jsonUtil.fromJson(consumerRecord.value(), SendOtpKafkaResponse.class);
+            MDC.put(MDC_KAFKA_MESSAGE_ID, kafkaResponse.getId());
 
             SendOtp sendOtp = sendOtpRepository.findBySendMessageKey(kafkaResponse.getId())
                     .orElseThrow(() -> new OtpException(String.format("Не найден SendOtp с ID: %s, пропускаем обработку", kafkaResponse.getId())));
@@ -61,7 +72,9 @@ public class OtpSendKafkaConsumer {
             log.debug("Статус SendOtp с ID {} обновлен на: {}", kafkaResponse.getId(), sendOtp.getStatus());
 
         } catch (Exception e) {
-            log.warn("Ошибка десериализации сообщения от Kafka", e);
+            log.warn("Ошибка при обработке сообщения от Kafka", e);
+        } finally {
+            MDC.clear();
         }
     }
 }

@@ -2,6 +2,7 @@ package ru.pozdeev.otp.kafka;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -14,6 +15,9 @@ import ru.pozdeev.otp.util.JsonUtil;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import static ru.pozdeev.otp.util.Constants.MDC_KAFKA_MESSAGE_ID;
+import static ru.pozdeev.otp.util.Constants.MDC_KAFKA_TOPIC;
 
 @Slf4j
 @Service
@@ -28,16 +32,18 @@ public class OtpSendKafkaProducer {
     private String topicIn;
 
     public void sendMessage(SendOtpKafkaRequest kafkaRequest) throws TimeoutException {
-
         try {
+            MDC.put(MDC_KAFKA_MESSAGE_ID, kafkaRequest.getId());
+
             SendResult<String, String> result = kafkaTemplate.send(topicIn, jsonUtil.toJson(kafkaRequest)).get(5, TimeUnit.SECONDS);
 
-            log.info("Запрос отправлен в кафку. Топик: {}, Партиция: {}, Offset: {}",
-                    result.getRecordMetadata().topic(),
+            log.info("Запрос отправлен в кафку. Партиция: {}, Offset: {}",
                     result.getRecordMetadata().partition(),
                     result.getRecordMetadata().offset());
         } catch (InterruptedException | ExecutionException e) {
             throw new OtpException("Ошибка отправки сообщения в кафку", e);
+        } finally {
+            MDC.clear();
         }
     }
 }
